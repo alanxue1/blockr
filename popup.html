@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blockr</title>
+
+    <!-- Local Chart.js will be included -->
+    <script src="chart.min.js"></script>
+
+    <!-- Custom styles -->
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="w-96 bg-gray-50 p-4" style="height: auto; min-height: 500px">
+    <!-- Header -->
+    <div class="mb-4">
+      <h1 class="text-xl font-bold text-gray-800 text-center">Blockr</h1>
+      <div class="flex justify-center mt-2">
+        <button
+          id="statsTab"
+          class="px-3 py-1 text-sm font-medium text-teal-600 border-b-2 border-teal-600"
+        >
+          Stats
+        </button>
+        <button
+          id="manageTab"
+          class="px-3 py-1 text-sm font-medium text-gray-500 ml-4"
+        >
+          Manage Sites
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats View -->
+    <div id="statsView" class="tab-content">
+      <p class="text-sm text-gray-600 text-center mb-4">
+        Today's blocked attempts
+      </p>
+
+      <!-- Chart Container -->
+      <div class="bg-white rounded-lg shadow-sm p-3 mb-4 h-48">
+        <canvas id="visitsChart" class="w-full h-full"></canvas>
+      </div>
+
+      <!-- Status -->
+      <div class="text-center">
+        <div id="statusMessage" class="text-sm text-gray-600">
+          No blocked attempts today
+        </div>
+        <div
+          id="totalAttempts"
+          class="text-lg font-semibold text-teal-600 mt-1"
+        >
+          0 attempts blocked today
+        </div>
+
+        <!-- Test button for development -->
+        <button
+          id="addTestDataBtn"
+          class="mt-2 px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+        >
+          Add Test Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Manage Sites View -->
+    <div id="manageView" class="tab-content hidden">
+      <!-- Add Site Form -->
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">
+          Add Website to Block
+        </h3>
+        <form id="addSiteForm" class="flex gap-2">
+          <input
+            type="text"
+            id="siteInput"
+            placeholder="example.com"
+            class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            required
+          />
+          <button
+            type="submit"
+            class="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            Add
+          </button>
+        </form>
+      </div>
+
+      <!-- Blocked Sites List -->
+      <div class="bg-white rounded-lg shadow-sm p-4">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">
+          Blocked Websites
+        </h3>
+        <div id="blockedSitesList" class="space-y-2 max-h-48 overflow-y-auto">
+          <!-- Sites will be populated here -->
+        </div>
+        <div
+          id="noSitesMessage"
+          class="text-sm text-gray-500 text-center py-4 hidden"
+        >
+          No websites blocked yet
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-xs text-gray-400 text-center mt-4">
+      Extension active and monitoring
+    </div>
+
+    <!-- Popup JavaScript -->
+    <script src="popup.js"></script>
+  </body>
+</html>

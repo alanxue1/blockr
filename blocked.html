@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Site Blocked - Blockr</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: black;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
+
+      .container {
+        text-align: center;
+        max-width: 500px;
+        padding: 2rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      }
+
+      .icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+      }
+
+      h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+      }
+
+      p {
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+        line-height: 1.6;
+      }
+
+      .blocked-url {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        font-family: monospace;
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+        word-break: break-all;
+      }
+
+      .actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .btn-primary {
+        background: white;
+        color: rgb(51, 51, 51);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .stats {
+        margin-top: 2rem;
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">🛡️</div>
+      <h1>Website Blocked</h1>
+      <p>This website has been blocked by Blockr extension.</p>
+
+      <div class="blocked-url" id="blockedUrl">Loading...</div>
+
+      <div class="actions">
+        <button class="btn btn-primary" id="goBackBtn">← Go Back</button>
+        <button class="btn btn-secondary" id="openExtensionBtn">
+          Manage Blocked Sites
+        </button>
+      </div>
+
+      <div class="stats" id="stats">This attempt has been recorded.</div>
+    </div>
+
+    <script>
+      // Display the blocked URL
+      function displayBlockedUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const blockedUrl =
+          urlParams.get("url") || document.referrer || "Unknown URL";
+        document.getElementById("blockedUrl").textContent = blockedUrl;
+      }
+
+      // Go back to previous page
+      function goBack() {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = "about:blank";
+        }
+      }
+
+      // Open extension popup (if possible)
+      function openExtension() {
+        // Try to open extension popup or provide instructions
+        alert(
+          "Click the extension icon in your browser toolbar to manage blocked sites."
+        );
+      }
+
+      // Record the blocked attempt
+      async function recordAttempt() {
+        try {
+          // Get the blocked URL from various sources
+          const urlParams = new URLSearchParams(window.location.search);
+          let blockedUrl = urlParams.get("url") || document.referrer;
+
+          if (!blockedUrl || blockedUrl === window.location.href) {
+            // Fallback: try to get from the current URL or use the current hostname
+            blockedUrl = window.location.hostname;
+          }
+
+          if (blockedUrl && chrome.runtime) {
+            // Send message to background script to record the attempt
+            chrome.runtime.sendMessage(
+              {
+                action: "recordBlockedAttempt",
+                url: blockedUrl,
+              },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  console.log("Could not communicate with background script");
+                } else {
+                  console.log("Blocked attempt recorded for:", blockedUrl);
+                }
+              }
+            );
+          } else {
+            console.log(
+              "Could not record attempt - missing URL or chrome.runtime"
+            );
+          }
+        } catch (error) {
+          console.log("Error recording attempt:", error);
+        }
+      } // Initialize page
+      document.addEventListener("DOMContentLoaded", () => {
+        displayBlockedUrl();
+        recordAttempt();
+
+        // Add event listeners
+        document.getElementById("goBackBtn").addEventListener("click", goBack);
+        document
+          .getElementById("openExtensionBtn")
+          .addEventListener("click", openExtension);
+      });
+    </script>
+  </body>
+</html>

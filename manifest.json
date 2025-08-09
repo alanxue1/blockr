@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "Blockr",
+  "version": "1.0",
+  "description": "Block websites and track daily visit attempts with visual analytics",
+
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "alarms",
+    "webNavigation"
+  ],
+
+  "host_permissions": ["<all_urls>"],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'self'"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
