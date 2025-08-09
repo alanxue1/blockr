@@ -105,7 +105,7 @@
     <div class="container">
       <div class="icon">🛡️</div>
       <h1>Website Blocked</h1>
-      <p>This website has been blocked by Blockr extension.</p>
+      <p>This website has been blocked by Blockr</p>
 
       <div class="blocked-url" id="blockedUrl">Loading...</div>
 
@@ -119,78 +119,6 @@
       <div class="stats" id="stats">This attempt has been recorded.</div>
     </div>
 
-    <script>
-      // Display the blocked URL
-      function displayBlockedUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const blockedUrl =
-          urlParams.get("url") || document.referrer || "Unknown URL";
-        document.getElementById("blockedUrl").textContent = blockedUrl;
-      }
-
-      // Go back to previous page
-      function goBack() {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          window.location.href = "about:blank";
-        }
-      }
-
-      // Open extension popup (if possible)
-      function openExtension() {
-        // Try to open extension popup or provide instructions
-        alert(
-          "Click the extension icon in your browser toolbar to manage blocked sites."
-        );
-      }
-
-      // Record the blocked attempt
-      async function recordAttempt() {
-        try {
-          // Get the blocked URL from various sources
-          const urlParams = new URLSearchParams(window.location.search);
-          let blockedUrl = urlParams.get("url") || document.referrer;
-
-          if (!blockedUrl || blockedUrl === window.location.href) {
-            // Fallback: try to get from the current URL or use the current hostname
-            blockedUrl = window.location.hostname;
-          }
-
-          if (blockedUrl && chrome.runtime) {
-            // Send message to background script to record the attempt
-            chrome.runtime.sendMessage(
-              {
-                action: "recordBlockedAttempt",
-                url: blockedUrl,
-              },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  console.log("Could not communicate with background script");
-                } else {
-                  console.log("Blocked attempt recorded for:", blockedUrl);
-                }
-              }
-            );
-          } else {
-            console.log(
-              "Could not record attempt - missing URL or chrome.runtime"
-            );
-          }
-        } catch (error) {
-          console.log("Error recording attempt:", error);
-        }
-      } // Initialize page
-      document.addEventListener("DOMContentLoaded", () => {
-        displayBlockedUrl();
-        recordAttempt();
-
-        // Add event listeners
-        document.getElementById("goBackBtn").addEventListener("click", goBack);
-        document
-          .getElementById("openExtensionBtn")
-          .addEventListener("click", openExtension);
-      });
-    </script>
+    <script src="blocked.js"></script>
   </body>
 </html>

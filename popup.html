@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blockr</title>
 
-    <!-- Local Chart.js will be included -->
-    <script src="chart.min.js"></script>
-
     <!-- Custom styles -->
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -38,10 +35,11 @@
       </p>
 
       <!-- Chart Container -->
-      <div class="bg-white rounded-lg shadow-sm p-3 mb-4 h-48">
-        <canvas id="visitsChart" class="w-full h-full"></canvas>
+      <div class="bg-white rounded-lg shadow-sm p-3 mb-4 chart-container">
+        <div id="simpleChart" class="space-y-2">
+          <!-- Enhanced chart bars will be inserted here -->
+        </div>
       </div>
-
       <!-- Status -->
       <div class="text-center">
         <div id="statusMessage" class="text-sm text-gray-600">
@@ -54,12 +52,13 @@
           0 attempts blocked today
         </div>
 
-        <!-- Test button for development -->
+        <!-- Reset button -->
         <button
-          id="addTestDataBtn"
-          class="mt-2 px-3 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          id="resetTodayBtn"
+          class="mt-3 px-4 py-2 bg-gray-500 text-white text-sm rounded-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
+          title="Clear today's blocking statistics"
         >
-          Add Test Data
+          Reset Today's Data
         </button>
       </div>
     </div>

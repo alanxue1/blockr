@@ -1,20 +1,7 @@
 // Website Blocker and Tracker - Popup Script
-// Fetches today's visit data and renders a Chart.js bar graph
+// Simple analytics with CSS bar charts
 
-let chart = null;
 let currentTab = "stats";
-
-// Teal-based color palette for the chart
-const CHART_COLORS = [
-  "#14b8a6", // teal-500
-  "#0d9488", // teal-600
-  "#0f766e", // teal-700
-  "#115e59", // teal-800
-  "#134e4a", // teal-900
-  "#5eead4", // teal-300
-  "#99f6e4", // teal-200
-  "#ccfbf1", // teal-100
-];
 
 // Initialize the popup when DOM is loaded
 document.addEventListener("DOMContentLoaded", async function () {
@@ -43,7 +30,7 @@ function setInitialState() {
   totalAttempts.textContent = "0 attempts blocked today";
 
   // Render empty chart
-  renderChart({});
+  renderSimpleChart({});
 }
 
 // Setup tab switching functionality
@@ -84,7 +71,7 @@ function setupTabs() {
 function setupForm() {
   const form = document.getElementById("addSiteForm");
   const input = document.getElementById("siteInput");
-  const testDataBtn = document.getElementById("addTestDataBtn");
+  const resetBtn = document.getElementById("resetTodayBtn");
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -96,27 +83,63 @@ function setupForm() {
     }
   });
 
-  // Add test data button event listener
-  testDataBtn.addEventListener("click", async () => {
-    await addTestData();
-  });
-} // Load visit data from background script
+  // Reset today's data button
+  if (resetBtn) {
+    resetBtn.addEventListener("click", async () => {
+      if (
+        confirm(
+          "Are you sure you want to clear today's blocking statistics? This cannot be undone."
+        )
+      ) {
+        await resetTodayData();
+      }
+    });
+  } else {
+    console.error("Reset button not found in DOM");
+  }
+}
+
+// Load visit data from storage directly
 async function loadVisitData() {
   try {
-    // Send message to background script to get visit data
-    const visitData = await new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ action: "getVisitData" }, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          resolve(response || {});
-        }
-      });
-    });
+    console.log("Loading visit data...");
 
-    // Update UI with the data (empty data is valid, not an error)
-    updateUI(visitData);
-    renderChart(visitData);
+    // Try direct storage access first
+    const today = new Date().toISOString().split("T")[0];
+    console.log("Looking for data for date:", today);
+
+    const result = await chrome.storage.local.get([today]);
+    console.log("Direct storage result:", result);
+
+    const visitData = result[today] || {};
+    console.log("Processing visit data:", visitData);
+
+    // Filter out invalid URLs and handle both old and new data formats
+    const cleanedData = {};
+    for (const [site, data] of Object.entries(visitData)) {
+      // Skip the random blocked page URLs
+      if (!site.includes("ckaikkhf") && !site.match(/^[a-z]{20,}$/)) {
+        // Handle both old format (number) and new format (object with total/hourly)
+        if (typeof data === "number") {
+          // Old format - convert to new format
+          cleanedData[site] = {
+            total: data,
+            hourly: Array(24).fill(0), // No hourly data available for old entries
+          };
+        } else if (data && typeof data === "object" && data.total) {
+          // New format
+          cleanedData[site] = data;
+        }
+      } else {
+        console.log("Filtered out invalid site:", site);
+      }
+    }
+
+    console.log("Cleaned visit data:", cleanedData);
+
+    // Update UI with the cleaned data
+    updateUI(cleanedData);
+    renderSimpleChart(cleanedData);
   } catch (error) {
     console.error("Error loading visit data:", error);
     showError("Error loading visit data");
@@ -130,7 +153,7 @@ function updateUI(visitData) {
 
   const sites = Object.keys(visitData);
   const totalCount = Object.values(visitData).reduce(
-    (sum, count) => sum + count,
+    (sum, data) => sum + (data.total || 0),
     0
   );
 
@@ -147,6 +170,72 @@ function updateUI(visitData) {
   }
 }
 
+// Render simple website list sorted by block count
+function renderSimpleChart(visitData) {
+  const container = document.getElementById("simpleChart");
+
+  // Clear existing content
+  container.innerHTML = "";
+
+  const sites = Object.keys(visitData);
+
+  if (sites.length === 0) {
+    container.innerHTML = `
+      <div class="text-center text-gray-500 py-6">
+        <div class="text-3xl mb-2">🎯</div>
+        <div class="font-medium">No blocked attempts yet</div>
+        <div class="text-sm mt-1 text-gray-400">Visit a blocked site to see stats here</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort sites by total count (highest first)
+  const sortedData = sites
+    .map((site) => ({
+      site,
+      total: visitData[site].total || visitData[site], // Handle both old and new format
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  // Create simple list items
+  const listItems = sortedData
+    .map(({ site, total }) => {
+      return `
+      <div class="flex items-center justify-between py-2.5 px-3 bg-white rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+        <div class="flex items-center space-x-3">
+          <div class="w-2.5 h-2.5 rounded-full bg-teal-500 flex-shrink-0"></div>
+          <span class="font-medium text-gray-800">${truncateSiteName(
+            site
+          )}</span>
+        </div>
+        <span class="text-sm font-semibold text-teal-600">${total}</span>
+      </div>
+    `;
+    })
+    .join("");
+
+  container.innerHTML = `
+    <div class="space-y-2">
+      ${listItems}
+    </div>
+  `;
+
+  // Add summary footer
+  const totalAttempts = sortedData.reduce((sum, item) => sum + item.total, 0);
+  const summaryDiv = document.createElement("div");
+  summaryDiv.className = "mt-4 pt-3 border-t border-gray-200 text-center";
+  summaryDiv.innerHTML = `
+    <div class="text-sm text-gray-600">
+      <span class="font-semibold text-teal-600">${totalAttempts}</span> total blocks across 
+      <span class="font-semibold text-teal-600">${sites.length}</span> 
+      ${sites.length === 1 ? "website" : "websites"} today
+    </div>
+  `;
+  container.appendChild(summaryDiv);
+}
+
+// Generate hourly line graph HTML with SVG
 // Render Chart.js bar graph
 function renderChart(visitData) {
   const canvas = document.getElementById("visitsChart");
@@ -423,32 +512,21 @@ function showMessage(message, type = "info") {
   }, 3000);
 }
 
-// Refresh data when popup is opened (optional enhancement)
-chrome.runtime.onMessage?.addListener((request, sender, sendResponse) => {
-  if (request.action === "refreshPopup") {
-    loadVisitData();
-    loadBlockedSites();
-  }
-});
-
-// Add test data for development/testing
-async function addTestData() {
+// Reset today's data
+async function resetTodayData() {
   try {
     const today = new Date().toISOString().split("T")[0];
-    const testData = {
-      "facebook.com": 5,
-      "twitter.com": 3,
-      "youtube.com": 8,
-      "example.com": 2,
-    };
 
-    await chrome.storage.local.set({ [today]: testData });
-    showMessage("Test data added successfully", "success");
+    // Remove today's data from storage
+    await chrome.storage.local.remove([today]);
 
-    // Refresh the UI
+    console.log("Today's data cleared successfully");
+    showMessage("Today's statistics have been reset", "success");
+
+    // Refresh the UI to show empty state
     await loadVisitData();
   } catch (error) {
-    console.error("Error adding test data:", error);
-    showMessage("Error adding test data", "error");
+    console.error("Error resetting today's data:", error);
+    showMessage("Failed to reset data", "error");
   }
 }

@@ -4,10 +4,10 @@ A simple browser extension that blocks websites and tracks visit attempts with v
 
 ## Features
 
-- ✅ Block specific websites
-- ✅ Visual analytics dashboard with charts
-- ✅ Track daily blocked attempts
-- ✅ Easy management interface
+- Block specific websites
+- Visual analytics dashboard with charts
+- Track daily blocked attempts
+- Easy management interface
 
 ## Installation
 

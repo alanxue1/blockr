@@ -8,7 +8,9 @@
     "storage",
     "declarativeNetRequest",
     "alarms",
-    "webNavigation"
+    "webNavigation",
+    "tabs",
+    "webRequest"
   ],
 
   "host_permissions": ["<all_urls>"],
@@ -36,7 +38,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
+      "resources": ["blocked.html", "blocked.js"],
       "matches": ["<all_urls>"]
     }
   ]

@@ -34,13 +34,25 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onStartup.addListener(async () => {
   const result = await chrome.storage.local.get(["blockedSites"]);
   currentBlockedSites = result.blockedSites || DEFAULT_BLOCKED_SITES;
+  console.log("Startup: Loaded blocked sites:", currentBlockedSites);
   await updateBlockingRules(currentBlockedSites);
 });
 
-// Update declarativeNetRequest rules based on blocked sites
+// Also load on service worker startup
+(async () => {
+  const result = await chrome.storage.local.get(["blockedSites"]);
+  currentBlockedSites = result.blockedSites || DEFAULT_BLOCKED_SITES;
+  console.log(
+    "Service worker startup: Loaded blocked sites:",
+    currentBlockedSites
+  );
+  await updateBlockingRules(currentBlockedSites);
+})();
+
+// Update blocking rules - now using webRequest instead of declarativeNetRequest
 async function updateBlockingRules(sites) {
   try {
-    // Remove all existing rules
+    // Remove any existing declarativeNetRequest rules
     const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
     const ruleIdsToRemove = existingRules.map((rule) => rule.id);
 
@@ -50,68 +62,80 @@ async function updateBlockingRules(sites) {
       });
     }
 
-    // Create new rules for each blocked site
-    const newRules = sites.map((site, index) => ({
-      id: index + 1,
-      priority: 1,
-      action: {
-        type: "redirect",
-        redirect: {
-          url: chrome.runtime.getURL("blocked.html"),
-        },
-      },
-      condition: {
-        urlFilter: `*://*.${site}/*`,
-        resourceTypes: ["main_frame"],
-      },
-    }));
-
-    // Also block exact domain matches (without subdomains)
-    const exactDomainRules = sites.map((site, index) => ({
-      id: index + sites.length + 1,
-      priority: 1,
-      action: {
-        type: "redirect",
-        redirect: {
-          url: chrome.runtime.getURL("blocked.html"),
-        },
-      },
-      condition: {
-        urlFilter: `*://${site}/*`,
-        resourceTypes: ["main_frame"],
-      },
-    }));
-
-    const allRules = [...newRules, ...exactDomainRules];
-
-    if (allRules.length > 0) {
-      await chrome.declarativeNetRequest.updateDynamicRules({
-        addRules: allRules,
-      });
-    }
-
-    console.log(`Updated blocking rules for ${sites.length} sites`);
+    console.log(`Updated blocked sites list: ${sites.length} sites`);
+    console.log("Sites:", sites);
+    console.log("Now using webRequest API for blocking");
   } catch (error) {
     console.error("Error updating blocking rules:", error);
   }
 }
 
-// Listen for navigation events to track blocked attempts
-chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
-  if (details.frameId === 0) {
-    // Only track main frame navigations
-    const url = new URL(details.url);
-    const hostname = url.hostname.replace(/^www\./, "");
-
-    // Check if this site is blocked
-    const isBlocked = currentBlockedSites.some(
-      (site) => hostname === site || hostname.endsWith("." + site)
+// Listen for web requests to track and block
+chrome.webRequest.onBeforeRequest.addListener(
+  async (details) => {
+    console.log(
+      "🌐 WebRequest onBeforeRequest fired for:",
+      details.url,
+      "Type:",
+      details.type
     );
 
-    if (isBlocked) {
-      await trackVisitAttempt(hostname);
+    if (details.type === "main_frame") {
+      try {
+        const url = new URL(details.url);
+        const hostname = url.hostname.replace(/^www\./, "");
+
+        console.log(
+          "🌐 Processing main_frame request to:",
+          hostname,
+          "Full URL:",
+          details.url
+        );
+        console.log("🌐 Current blocked sites:", currentBlockedSites);
+
+        // Check if this site is blocked
+        const isBlocked = currentBlockedSites.some(
+          (site) => hostname === site || hostname.endsWith("." + site)
+        );
+
+        console.log("🌐 Is blocked?", isBlocked);
+
+        if (isBlocked) {
+          console.log(
+            "🚫 BLOCKING: Site is blocked, tracking visit attempt for:",
+            hostname
+          );
+          await trackVisitAttempt(hostname);
+          console.log("✅ Visit attempt tracked successfully");
+
+          const redirectUrl = chrome.runtime.getURL(
+            `blocked.html?url=${encodeURIComponent(hostname)}`
+          );
+          console.log("🔄 Redirecting to:", redirectUrl);
+
+          // Return redirect to blocked page
+          return {
+            redirectUrl: redirectUrl,
+          };
+        } else {
+          console.log("✅ ALLOWING: Site is not blocked:", hostname);
+        }
+      } catch (error) {
+        console.error("❌ Error processing web request:", error);
+      }
     }
-  }
+  },
+  { urls: ["<all_urls>"] },
+  ["blocking"]
+);
+
+// Keep the webNavigation listener as backup
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  console.log("webNavigation.onBeforeNavigate fired (backup):", {
+    url: details.url,
+    frameId: details.frameId,
+    tabId: details.tabId,
+  });
 });
 
 // Also listen for completed navigations to catch redirects to blocked page
@@ -137,26 +161,61 @@ chrome.webNavigation.onCompleted.addListener(async (details) => {
   }
 });
 
-// Function to track visit attempts
+// Function to track visit attempts with hourly granularity
 async function trackVisitAttempt(site) {
   try {
-    const today = new Date().toISOString().split("T")[0]; // Format: YYYY-MM-DD
+    const now = new Date();
+    const today = now.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+    const hour = now.getHours(); // 0-23
+    console.log(
+      "📊 Tracking visit attempt for:",
+      site,
+      "on date:",
+      today,
+      "at hour:",
+      hour
+    );
 
     // Get existing data from storage
     const result = await chrome.storage.local.get([today]);
     const todayData = result[today] || {};
+    console.log("📦 Existing data for today:", todayData);
 
-    // Increment count for this site
-    todayData[site] = (todayData[site] || 0) + 1;
+    // Initialize site data with hourly tracking if it doesn't exist
+    if (!todayData[site]) {
+      todayData[site] = {
+        total: 0,
+        hourly: Array(24).fill(0), // Array for 24 hours (0-23)
+      };
+    }
+
+    // Increment total and hourly count
+    todayData[site].total++;
+    todayData[site].hourly[hour]++;
+
+    console.log(
+      "📈 Updated counts for",
+      site,
+      "- Total:",
+      todayData[site].total,
+      "Hour",
+      hour + ":",
+      todayData[site].hourly[hour]
+    );
 
     // Save back to storage
     await chrome.storage.local.set({ [today]: todayData });
+    console.log("💾 Saved to storage:", { [today]: todayData });
+
+    // Verify it was saved
+    const verification = await chrome.storage.local.get([today]);
+    console.log("✓ Verification - data in storage:", verification);
 
     console.log(
-      `Blocked attempt to visit ${site}. Total attempts today: ${todayData[site]}`
+      `🎯 SUCCESS: Blocked attempt to visit ${site}. Total attempts today: ${todayData[site].total}`
     );
   } catch (error) {
-    console.error("Error tracking visit attempt:", error);
+    console.error("❌ Error tracking visit attempt:", error);
   }
 }
 
@@ -181,13 +240,18 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
       const url = request.url;
       let hostname;
 
+      console.log("Received recordBlockedAttempt message with URL:", url);
+
       if (url.startsWith("http")) {
         hostname = new URL(url).hostname.replace(/^www\./, "");
       } else {
         hostname = url.replace(/^www\./, "");
       }
 
+      console.log("Extracted hostname:", hostname);
+
       await trackVisitAttempt(hostname);
+      console.log("Visit attempt tracked successfully");
       sendResponse({ success: true });
     } catch (error) {
       console.error("Error recording blocked attempt:", error);
@@ -205,8 +269,15 @@ chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
 async function getVisitData() {
   try {
     const today = new Date().toISOString().split("T")[0];
+    console.log("Getting visit data for date:", today);
+
     const result = await chrome.storage.local.get([today]);
-    return result[today] || {};
+    console.log("Storage result:", result);
+
+    const visitData = result[today] || {};
+    console.log("Returning visit data:", visitData);
+
+    return visitData;
   } catch (error) {
     console.error("Error getting visit data:", error);
     return {};
